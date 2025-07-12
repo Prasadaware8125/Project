@@ -1,140 +1,102 @@
-// For server Web apps
-const express = require("express");
-const app = express();
+let gameSeq = [];
+let userSeq = [];
+let highestScore = 0;
 
-// For Database
-const mongoose = require("mongoose");
+let btns = ["yellow","red","blue","green"];
 
-// For accessing files and folders
-const path = require("path");
+let started = false;
+let level = 0;
 
-// For accessing DB and its Schema and data
-const Listing = require("./models/listing.js");
+let startbtn = document.querySelector('.start');
 
-// To override post by PUT,PATCH,PUT,DELETE
-const methodOverride = require("method-override");
 
-// To create template/ layouts
-const ejsMate = require("ejs-mate");
+let high = document.querySelector('#highestScore');
+let h2 = document.querySelector('h2');
 
-// To use ejs files 
-app.set('view engine', 'ejs');
-// Giving path for views folder to access ejs files
-app.set('views', path.join(__dirname, 'views'));
-// Giving path for public forlder to access static files (.css,.js)
-app.use(express.static(path.join(__dirname,"public")));
-// To get the data/ details from url
-app.use(express.urlencoded({extended: true}));
+// Step 1 : Start the game
+document.addEventListener("keypress" , function () {
+    if( started == false ) {
+        console.log("Game started!");
+        started = true;
 
-// Activating/ giving fuctionality of method-override package
-app.use(methodOverride("_method"));
+        levelUp();
+    }
+});
+// for phone
+startbtn.addEventListener("click", () => {
+    if( started == false ) {
+        console.log("Game started!");
+        started = true;
 
-// use ejs-locals for all ejs templates:
-app.engine('ejs', ejsMate);
-
-// MongoDB server address
-const MONGO_URL = "mongodb://127.0.0.1:27017/wandurlust";
-
-// Connecting Server with Database
-main().then(() => {
-    console.log("Connected to database.");
-}).catch((err) => {
-    console.log(err);
+        levelUp();
+    }
 });
 
-// Fuction to connet
-async function main() {
-    await mongoose.connect(MONGO_URL);
+// Step 2 : Flash buttons and level up
+
+function gameflash(randBtn) {
+    randBtn.classList.add("flash");
+    setTimeout( () => randBtn.classList.remove("flash"),100);
+}
+
+function userflash(randBtn) {
+    randBtn.classList.add("userflash");
+    setTimeout( () => randBtn.classList.remove("userflash"),100);
 }
 
 
-// Creating Server
-app.listen(8080, () => {
-    console.log("server is listning to port 8080");
-});
+function levelUp() {
+    userSeq = [];
+    level++;
+    h2.innerText = `Level ${level}`;
+    let randomIdx = Math.floor(Math.random() * 4);
+    let randColor = btns[randomIdx];
+    let randBtn = document.querySelector(`#${randColor}`);
+    // console.log(randomIdx);
+    // console.log(randColor);
+    // console.log(randBtn);
+    gameSeq.push(randColor);
+    console.log("game seq:",gameSeq);
+    gameflash(randBtn);
+}
 
-// Home 
-app.get( "/", (req,res) => {
-    res.send("Hi, this is root!");
-});
+function checkAns(idx) {
+    // console.log(level);
+    // let idx = level -1;
 
-// app.get( "/testListing", async (req,res) => {
-//     let sampleListing = new Listing( {
-//         title: "Villa",
-//         desciption: "new villa",
-//         price: 1200,
-//         location: "Goa",
-//         country: "India"
-//     });
+    if( userSeq[idx] == gameSeq[idx]) {
+        if( userSeq.length == gameSeq.length) {
+            setTimeout(levelUp,1000);
+        } 
+    } else {
+        if( level > highestScore ) {
+            highestScore = level;
+        }
+        high.innerHTML = `Highest Score : ${highestScore}`;
+        h2.innerHTML = `Game over! Your score was <b>${level}</b><br>Press any key to start.`;
+        reset();
+    }
+}
 
-//     await sampleListing.save();
-//     console.log("Sample was saved!");
-//     res.send("Successful testing.");
-// });
+function btnPrss() {
+    // console.log(this);
+    let btn = this;
+    userflash(btn);
 
-// INDEX Route
-// To show all listting
-app.get( "/listings", async (req ,res) => {
-    const allListings = await Listing.find( {} );
-    res.render("listings/index.ejs", {allListings});
-});
+    userColor = btn.getAttribute("id");
+    userSeq.push(userColor);
+    // console.log("user seq",userSeq);
+    checkAns(userSeq.length-1);
+}
 
+let allBtns = document.querySelectorAll('.btn');
+for( btn of allBtns ) {
+    btn.addEventListener("click", btnPrss);
+}
 
-// CREATE
-// NEW Route
-// To create new listing
-app.get( "/listings/new" , (req,res) => {
-    res.render("listings/new.ejs");
-});
-
-// UPDATE Route
-// To get details of listing and add it to DB
-app.post( "/listings" , async (req,res) => {
-    // let {title,description,image,price,location,country} = req.body;
-    // let newListing = new Listing({
-    //     title: title,
-    //     description: description,
-    //     image: image,
-    //     price: price,
-    //     location: location,
-    //     country: country
-    // });
-    // OR
-    const newListing = new Listing(req.body.listing);
-    await newListing.save();
-    console.log("New Listing added successfully!");
-    res.redirect("/listings");
-});
-
-// UPDATE Route
-// To Edit and Update listing
-app.get( "/listings/:id/edit", async (req,res) => {
-    let {id} = req.params;
-    const listing = await Listing.findById(id);
-    res.render("listings/edit.ejs", {listing});
-});
-
-// PUT request
-// to updata details in db
-app.put( "/listings/:id", async (req,res) => {
-    let {id} = req.params;
-    await Listing.findByIdAndUpdate(id, {...req.body.listing});
-    console.log("Update successfully!");
-    res.redirect("/listings");
-});
-
-// DELETE Route
-// to delete the listings
-app.delete( "/listings/:id" , async (req,res) => {
-    let {id} = req.params;
-    await Listing.findByIdAndDelete(id);
-    res.redirect("/listings");
-});
-
-// SHOW Route
-// To show the details of particular listing (destinations/place)
-app.get( "/listings/:id", async (req,res) => {
-    let {id} = req.params;
-    const listing = await Listing.findById(id);
-    res.render("listings/show.ejs", {listing});
-});
+function reset() {
+    started = false;
+    gameSeq = [];
+    userSeq = [];
+    level = 0;
+}
